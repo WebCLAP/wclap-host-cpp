@@ -18,11 +18,11 @@ This repo includes the C++ header `wclap/wclap.hpp` which defines WCLAP equivale
 
 (Sorry, C/Rust folks - the `Pointer<>`/`Function<>` templates make this _so_ much nicer.)
 
-### Recommended `Engine` API
+### Recommended `Instance` API
 
-This repo also includes `wclap/engine.hpp`, which is a _recommended_ API for abstracting different WASM engines.  Using this API should make it easier to write a host and swap the WASM engine out later.
+This repo also includes `wclap/instance.hpp`, which is a _recommended_ API for abstracting different WASM engines.  Using this API should make it easier to write a host and swap the WASM engine out later.
 
-Each `Engine` should correspond to a WASM VM running a WCLAP.  All CLAP host functions must be registered as soon as this is available, before `.init()` (or `.initThread()`) is called.  This ensures consistent function-pointer values across instances/threads.
+Each `Instance` should correspond to a (thread for a) WASM VM running a WCLAP.  All CLAP host functions must be registered as soon as this is available, before `.init()` (or `.initThread()`) is called.  This ensures consistent function-pointer values across instances/threads.
 
 ### WASI helper
 
