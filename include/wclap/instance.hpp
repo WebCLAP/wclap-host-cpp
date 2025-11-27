@@ -1,6 +1,7 @@
 #include "./wclap.hpp"
 
 #include <functional>
+#include <type_traits>
 
 namespace wclap {
 
@@ -44,28 +45,37 @@ public:
 		}
 	}
 
-	// Thread-specific init - calls through to wasi_thread_start()
+	// Thread-specific init - calls through to wasi_thread_start() in the WCLAP
 	void initThread(int threadId, void *startArg) {
 		impl.initThread(threadId, startArg);
 	}
 
-	// This gets called by the instance when it wants to start a thread - assign this if you support threads, call initThread() from the new thread, and return thread ID [1, 2^29) on success, negative on failure
+	// This gets called by the instance when the WCLAP requests to start a thread - assign this if you support threads, and then call initThread() from the new thread, and return thread ID [1, 2^29) on success, negative on failure
 	int (*threadSpawn)(Instance *instance, uint64_t startArg) = nullptr;
 
 	//---- wclap32 ----//
 
+	wclap32::Pointer<void> malloc32(uint32_t size) {
+		return impl.malloc32(size);
+	}
+
+	// Helper, calls as length-1 array
 	template<class V>
-	V get(wclap32::Pointer<V> ptr, size_t index=0) {
-		return impl.get(ptr, index);
+	std::remove_cv_t<V> get(wclap32::Pointer<V> ptr, size_t index=0) {
+		std::remove_cv_t<V> value{};
+		wclap32::Pointer<V> indexPtr{ptr.wasmPointer + uint32_t(sizeof(V)*index)};
+		getArray(indexPtr, &value, 1);
+		return value;
 	}
 	template<class V>
-	bool getArray(wclap32::Pointer<const V> ptr, V *result, size_t count) {
-		return impl.getArray(ptr, result, count);
+	bool set(wclap32::Pointer<V> ptr, std::remove_cv_t<V> value, size_t index=0) {
+		wclap32::Pointer<V> indexPtr{ptr.wasmPointer + uint32_t(sizeof(V)*index)};
+		return setArray(ptr, value, 1);
 	}
 
 	template<class V>
-	bool set(wclap32::Pointer<V> ptr, const V &value, size_t index=0) {
-		return impl.set(ptr, value, index);
+	bool getArray(wclap32::Pointer<V> ptr, std::remove_cv_t<V> *result, size_t count) {
+		return impl.getArray(ptr, result, count);
 	}
 	template<class V>
 	bool setArray(wclap32::Pointer<V> ptr, const V *value, size_t count) {
@@ -73,7 +83,7 @@ public:
 	}
 	
 	template<class V>
-	uint32_t countUntil(wclap32::Pointer<V> ptr, V endValue, uint32_t maxCount){
+	uint32_t countUntil(wclap32::Pointer<V> ptr, const V &endValue, uint32_t maxCount) {
 		return impl.countUntil(ptr, endValue, maxCount);
 	}
 
@@ -83,30 +93,34 @@ public:
 		return impl.template call<Return, Args...>(fnPtr, args...);
 	}
 
-	wclap32::Pointer<void> malloc32(uint32_t size) {
-		return impl.malloc32(size);
-	}
-
-	// You should actually implement registerHost64<Return, Args...>(fnPtr) instead of this
-	template<auto fnPtr>
-	auto registerHost32() {
-		using FnType = decltype(std::function{fnPtr});
-		return registerHost32Inner(fnPtr, FnType{});
+	template<class Return, class ...Args>
+	wclap32::Function<Return, Args...> registerHost32(Return (*fn)(Args...)) {
+		return impl.template registerHost32<Return, Args...>(fn);
 	}
 
 	//---- wclap64 ----//
+
+	wclap64::Pointer<void> malloc64(uint64_t size) {
+		return impl.malloc64(size);
+	}
+
+	// Helper, calls as length-1 array
 	template<class V>
-	V get(wclap64::Pointer<V> ptr, size_t index=0) {
-		return impl.get(ptr, index);
+	std::remove_cv_t<V> get(wclap64::Pointer<V> ptr, size_t index=0) {
+		std::remove_cv_t<V> value{};
+		wclap64::Pointer<V> indexPtr{ptr.wasmPointer + uint64_t(sizeof(V)*index)};
+		getArray(indexPtr, &value, 1);
+		return value;
 	}
 	template<class V>
-	bool getArray(wclap64::Pointer<const V> ptr, V *result, size_t count) {
-		return impl.getArray(ptr, result, count);
+	bool set(wclap64::Pointer<V> ptr, std::remove_cv_t<V> value, size_t index=0) {
+		wclap64::Pointer<V> indexPtr{ptr.wasmPointer + uint64_t(sizeof(V)*index)};
+		return setArray(ptr, value, 1);
 	}
 
 	template<class V>
-	bool set(wclap64::Pointer<V> ptr, const V &value, size_t index=0) {
-		return impl.set(ptr, value, index);
+	bool getArray(wclap64::Pointer<V> ptr, std::remove_cv_t<V> *result, size_t count) {
+		return impl.getArray(ptr, result, count);
 	}
 	template<class V>
 	bool setArray(wclap64::Pointer<V> ptr, const V *value, size_t count) {
@@ -123,27 +137,9 @@ public:
 		return impl.template call<Return, Args...>(fnPtr, args...);
 	}
 
-	wclap64::Pointer<void> malloc64(uint32_t size) {
-		return impl.malloc64(size);
-	}
-
-	// You should actually implement registerHost64<Return, Args...>(fnPtr) instead of this
-	template<auto fnPtr>
-	auto registerHost64() {
-		using FnType = decltype(std::function{fnPtr});
-		return registerHost64Inner(fnPtr, FnType{});
-	}
-
-private:
-	// Template shenanigans, so you don't have to
-	// The functions above use C++17's template-parameter deduction to fill out a std::function.  We then match on that here, to _expliclty_ template the `.registerHostN()` methods.
-	template<typename Fn, typename Return, class ...Args>
-	wclap32::Function<Return, Args...> registerHost32Inner(Fn fnPtr, const std::function<Return(Args...)> &) {
-		impl.template registerHost32<Return, Args...>(fnPtr);
-	}
-	template<typename Fn, typename Return, class ...Args>
-	wclap64::Function<Return, Args...> registerHost64Inner(Fn fnPtr, const std::function<Return(Args...)> &) {
-		impl.template registerHost64<Return, Args...>(fnPtr);
+	template<class Return, class ...Args>
+	wclap64::Function<Return, Args...> registerHost64(Return (*fn)(Args...)) {
+		return impl.template registerHost64<Return, Args...>(fn);
 	}
 };
 
