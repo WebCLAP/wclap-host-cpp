@@ -16,20 +16,16 @@ The WCLAP may import WASI, and hosts should provide this where possible.  If the
 
 This repo includes the C++ header `wclap/wclap.hpp` which defines WCLAP equivalents to all the CLAP types.  These have the (function-)pointers replaced, so (as long as the host architecture is little-endian) they can be copied bitwise from the corresponding CLAP types inside the WASM memory.
 
-(Sorry, C/Rust folks - the `Pointer<>`/`Function<>` templates make this _so_ much nicer.)
+These structures can't contain pointers, since those will all be specified relative to the WASM memory, not the host memory.  Similarly, they can't contain function pointers (a core part of the CLAP API), so these are represented by `Pointer<>` and `Function<>` wrappers respectively. 
 
-### Recommended `Instance` API
+(This is why it's in C++, sorry C/Rust folks.  The `Pointer<>`/`Function<>` templates make this _so_ much nicer.  If it's possible to write something similar in other languages, I'm not the person to do it.)
 
-This repo also includes `wclap/instance.hpp`, which is a _recommended_ API for abstracting different WASM engines.  Using this API should make it easier to write a host and swap the WASM engine out later.
+### `Instance` interface
 
-Each `Instance` should correspond to a (thread for a) WASM VM running a WCLAP.  All CLAP host functions must be registered as soon as this is available, before `.init()` (or `.initThread()`) is called.  This ensures consistent function-pointer values across instances/threads.
+To actually set/get `Pointer<>`s, or call `Function<>`s, you need an `Instance`.  This is an abstract interface defined in `wclap/instance.hpp`.
 
-### WASI helper
+The idea is to abstract "a WCLAP running in some unknown WASM engine", making it easier to write a host and swap the WASM engine out later.  WASI support is up to the `Instance`, and there may be some implementation-specific config there.
 
-The files `wclap/wasi.hxx`defines functions suitable for implementing `wasi_snapshot_preview1`, but only the filesystem/env/args ones are defined. 
+All host functions must be registered before calling `Instance::init()`, and will have different `Function<>` values when registered on different `Instance`s.
 
-If this is backed by an actual filesystem, then the (non-exported) `wasi_set_directory()` function must be called at initialisation time, otherwise an in-memory one will be used.
-
-Since this only provides a single filesystem, if you're hosting multiple WCLAPs then `wasi_create_plugin_dir()` should be called (and the result stored) to create/return a directory for the plugin to be placed in.  Directories outside of this cannot be listed with `fd_readdir()`, so plugins won't be able to read each others' data without sharing this.
-
-This has not been thoroughly security-reviewed, but (after looking at security reports for other implementations), symlinks/links seemed to be the weak-point for sandboxing, so they are simply not supported.  They don't make as much sense on Windows anyway.
+If a WCLAP spawns a new thread, the `Instance` should handle this internally, and then inform you about it by a callback on that new thread.  A thread spawned by one `Instance` will *not* be able to call methods on other `Instance`s.
