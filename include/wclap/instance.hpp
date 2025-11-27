@@ -30,12 +30,18 @@ public:
 		return impl.is64();
 	}
 
+	// Entry-points - not populated until the module is initialised
+	wclap32::Pointer<const wclap32::wclap_plugin_entry> entry32{0};
+	wclap64::Pointer<const wclap64::wclap_plugin_entry> entry64{0};
+	
 	// Main thread - this should call _initialize() etc. but not clap_entry.init()
-	wclap32::Pointer<const wclap32::wclap_plugin_entry> init32() {
-		return impl.init32();
-	}
-	wclap64::Pointer<const wclap64::wclap_plugin_entry> init64() {
-		return impl.init64();
+	// You should implement `init32()`/`init64()` which return the corresponding entry points
+	void init() {
+		if (is64()) {
+			entry64 = impl.init64();
+		} else {
+			entry32 = impl.init32();
+		}
 	}
 
 	// Thread-specific init - calls through to wasi_thread_start()
