@@ -10,15 +10,16 @@ namespace wclap {
 template<class ActualImpl>
 class Instance {
 	ActualImpl impl;
-	static int threadSpawnImpl(ActualImpl *impl, uint64_t startArg) {
-		auto *self = (Instance *)impl; // first field, has same address
+	static int threadSpawnImpl(void *impl, uint64_t startArg) {
+		auto *self = (Instance *)impl;
 		if (!self->threadSpawn) return -1; // not supported
-		return self->threadSpawn(self, startArg);
+		return self->threadSpawn(self->threadSpawnContext, startArg);
 	}
 
 public:
 	template<class... Args>
 	Instance(Args &&...args) : impl(std::forward<Args>(args)...) {
+		impl.threadSpawnContext = this;
 		impl.threadSpawn = threadSpawnImpl;
 	}
 	
@@ -45,13 +46,14 @@ public:
 		}
 	}
 
-	// Thread-specific init - calls through to wasi_thread_start() in the WCLAP
-	void initThread(int threadId, void *startArg) {
-		impl.initThread(threadId, startArg);
+	// run a thread until stopped - calls through to wasi_thread_start() in the WCLAP
+	void runThread(int threadId, void *startArg) {
+		impl.runThread(threadId, startArg);
 	}
 
-	// This gets called by the instance when the WCLAP requests to start a thread - assign this if you support threads, and then call initThread() from the new thread, and return thread ID [1, 2^29) on success, negative on failure
-	int (*threadSpawn)(Instance *instance, uint64_t startArg) = nullptr;
+	void *threadSpawnContext = nullptr;
+	// This gets called by the instance when the WCLAP requests to start a thread - assign this if you support threads, returning thread ID [1, 2^29) on success, negative on failure, and then call runThread() from the new thread
+	int (*threadSpawn)(void *threadContext, uint64_t startArg) = nullptr;
 
 	//---- wclap32 ----//
 
@@ -82,9 +84,9 @@ public:
 		return impl.setArray(ptr, value, count);
 	}
 	
-	template<class V>
-	uint32_t countUntil(wclap32::Pointer<V> ptr, const V &endValue, uint32_t maxCount) {
-		return impl.countUntil(ptr, endValue, maxCount);
+	template<class V, class VE>
+	uint32_t countUntil(wclap32::Pointer<V> ptr, const VE &endValue, uint32_t maxCount=-1) {
+		return impl.template countUntil<V>(ptr, V(endValue), maxCount);
 	}
 
 	template<class Return, class... Args, class... CArgs>
@@ -127,9 +129,9 @@ public:
 		return impl.setArray(ptr, value, count);
 	}
 	
-	template<class V>
-	uint64_t countUntil(wclap64::Pointer<V> ptr, V endValue, uint64_t maxCount){
-		return impl.countUntil(ptr, endValue, maxCount);
+	template<class V, class VE>
+	uint64_t countUntil(wclap64::Pointer<V> ptr, VE endValue, uint64_t maxCount=-1){
+		return impl.template countUntil<V>(ptr, V(endValue), maxCount);
 	}
 
 	template<class Return, class... Args, class... CArgs>
