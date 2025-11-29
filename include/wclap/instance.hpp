@@ -94,8 +94,8 @@ public:
 	}
 
 	template<class Return, class ...Args>
-	wclap32::Function<Return, Args...> registerHost32(Return (*fn)(Args...)) {
-		return impl.template registerHost32<Return, Args...>(fn);
+	wclap32::Function<Return, Args...> registerHost32(void *context, Return (*fn)(void *, Args...)) {
+		return impl.template registerHost32<Return, Args...>(context, fn);
 	}
 
 	//---- wclap64 ----//
@@ -136,8 +136,8 @@ public:
 	}
 
 	template<class Return, class ...Args>
-	wclap64::Function<Return, Args...> registerHost64(Return (*fn)(Args...)) {
-		return impl.template registerHost64<Return, Args...>(fn);
+	wclap64::Function<Return, Args...> registerHost64(void *context, Return (*fn)(void *, Args...)) {
+		return impl.template registerHost64<Return, Args...>(context, fn);
 	}
 };
 
