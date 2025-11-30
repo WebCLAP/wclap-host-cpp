@@ -17,9 +17,10 @@ struct MemoryArena {
 	using Pointer = std::conditional_t<is64, wclap64::Pointer<V>, wclap32::Pointer<V>>;
 	using ArenaPool = MemoryArenaPool<Instance, is64>;
 
+	ArenaPool &pool;
 	bool ok = false;
 	
-	MemoryArena(ArenaPool &pool, Instance *instance, Size size=16384) : instance(instance), pool(pool) {
+	MemoryArena(ArenaPool &pool, Instance *instance, Size size=16384) : pool(pool), instance(instance) {
 		if constexpr (is64) {
 			start = instance->malloc64(size).wasmPointer;
 		} else {
@@ -44,8 +45,10 @@ struct MemoryArena {
 		}
 		Scoped(const Scoped &other) = delete;
 		
-		void commit() {
+		std::unique_ptr<MemoryArena> commit() {
 			restoreStart = arena.start;
+			std::unique_ptr<MemoryArena> ptr = std::move(borrowedArena);
+			return ptr;
 		}
 
 		Pointer<const char> writeString(const char *str) {
@@ -86,7 +89,6 @@ private:
 	Size start = 0, end = 0;
 	Size cleanStart = 0;
 	Instance *instance = nullptr;
-	ArenaPool &pool;
 };
 
 template<class Instance, bool is64>
