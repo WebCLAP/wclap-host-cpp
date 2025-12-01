@@ -3,7 +3,15 @@
 #include <cstdint>
 #include <type_traits>
 
+#define WCLAP_CONSTEXPR constexpr
+#define WCLAP_EXPORT
+#define WCLAP_NODISCARD
+
+#include "./_impl/wclap-defines.hpp"
+
 namespace wclap32 {
+	using Size = uint32_t;
+
 	template<class T>
 	struct Pointer {
 		uint32_t wasmPointer;
@@ -47,6 +55,8 @@ namespace wclap32 {
 };
 
 namespace wclap64 {
+	using Size = uint64_t;
+
 	template<class T>
 	struct Pointer {
 		uint64_t wasmPointer;

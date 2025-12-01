@@ -2,6 +2,12 @@
 const fs = require('fs'), resolvePath = require('path').resolve;
 const clapPathPrefix = __dirname + "/clap/include/clap";
 
+try {
+	fs.accessSync(clapPathPrefix);
+} catch (e) {
+	require('child_process').execSync(`git clone https://github.com/free-audio/clap.git ${__dirname}/clap`);
+}
+
 let knownNotNames = {};
 'const,char,uint8_t,'.split(',').forEach(x => knownNotNames[x] = true);
 let includedFiles = {};
@@ -19,10 +25,11 @@ You should be able to include this inside another namespace, as long as Function
 */
 
 `;
+let cppDefines = ``;
 
-function addCode(code) {
-	for (let key in numericConstants) code = code.replaceAll(key, numericConstants[key]);
-	code = code.replace(/(\s+|\(|\*)clap_/g, "$1wclap_");
+function addCode(code, toConstants) {
+	code = code.replace(/([^a-zA-Z0-9_])clap_/g, "$1wclap_");
+	code = code.replace(/([^a-zA-Z0-9_])CLAP_/g, "$1WCLAP_");
 	// remove `_t` suffix from WCLAP types
 	code = code.replace(/((\s+|\(|\*)wclap_[a-zA-Z0-9_]+)_t([^a-zA-Z0-9_])/g, "$1$3");
 	
@@ -30,7 +37,13 @@ function addCode(code) {
 	let prevCode;
 	do {
 		prevCode = code;
-		code = code.replace(/(\w[a-zA-Z0-9_\s<>]+?)(\s*)\*/, "Pointer<$1>$2");
+		code = code.replace(/(\w[a-zA-Z0-9_\s<>]+?)(\s*)\*/, (match, type, whitespace) => {
+			if (/^typedef\s/.test(type)) {
+				type = type.replace(/^typedef\s/, '');
+				return `typedef Pointer<${type}>${whitespace}`;
+			}
+			return `Pointer<${type}>${whitespace}`;
+		});
 	} while (prevCode != code);
 	
 	// Replace all function pointers
@@ -49,7 +62,11 @@ function addCode(code) {
 	code = code.replace(/,([^\s])/g, ", $1");
 	code = code.replace(/\n\s*\n/g, "\n");
 	
-	cppHeader += code + "\n";
+	if (toConstants) {
+		cppDefines += code + "\n";
+	} else {
+		cppHeader += code + "\n";
+	}
 }
 
 addDir("");
@@ -69,50 +86,39 @@ function addFile(path) {
 	path = resolvePath(path);
 	if (includedFiles[path]) return;
 	includedFiles[path] = true;
+	
+	if (/^\/private\//.test(path)) return;
 
 	let code = fs.readFileSync(`${clapPathPrefix}${path}`, 'utf8');
-	code = code.replaceAll(/\s*\/\/[^\n]*/g, ''); // remove comments
+	// remove comments
+	code = code.replaceAll(/\s*\/\/[^\n]*/g, '');
+	code = code.replaceAll(/\/\*(.|\r|\n)*\*\//g, '');
+	// tidying
+	code = code.replaceAll(/(^|\n)\s*#pragma once/g, '');
+	code = code.replaceAll(/#ifdef __cplusplus(.|\n)*?#endif/g, "");
+	// This makes it easier to match on function pointers
 	code = code.replaceAll(/\s*CLAP_ABI\s+/g, '');
 	
-	code.replaceAll(/#include\s+("[^"]+")/g, (match, includePath) => {
+	code = code.replaceAll(/#include\s+("[^"]+")/g, (match, includePath) => {
 		includePath = JSON.parse(includePath);
-		if (/^private\//.test(includePath)) return;
+		if (/^private\//.test(includePath)) return "";
 		addFile(path.replace(/[^\/]*$/, '') + includePath);
+		return "";
 	});
 
-	// catch numeric constants
-	code.replaceAll(/#define\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+([0-9]+)/g, (match, name, value) => {
-		numericConstants[name] = parseInt(value);
-	});
-	// catch enum constants
-	code.replaceAll(/enum\s+\{([^\}]+)\}/g, (match, body) => {
-		body.replaceAll(/([a-zA-Z_][a-zA-Z0-9_]*)\s+=([^\,]+)/g, (match, name, value) => {
-			value = value.trim();
-			try {
-				// There are a few different syntaxes here, and JS is close enough to C for this to work
-				value = eval(value);
-			} catch (e) {
-				throw Error(`couldn't understand enum constant: ${name} = ${value}`);
-			}
-			numericConstants[name] = value;
-		});
-	});
-	
-	// catch simple typedefs
-	code.replaceAll(/typedef\s+(([^\{\};]+)(\s+|\*)([a-zA-Z_][a-zA-Z0-9_]*);)/g, (match, body) => {
-		cppHeader += "typedef ";
-		addCode(body);
-	});
-	
-	// Catch typedef'd structs, which are the main API type
-	let parts = code.split('\ntypedef struct ');
-	parts.slice(1).forEach((code, sliceIndex) => {
-		let name = code.split(/\s/, 1)[0];
-		// Extract struct body - it will end with the `_t` name.
-		let body = code.substr(name.length).split(name + '_t')[0].trim();
+	cppHeader += `//---------- ${path.substr(1)}\n`;
+	cppDefines += `//---------- ${path.substr(1)}\n`;
 
-		addCode(`struct ${name} ${body.trim()};`);
+	// catch all named defines
+	code = code.replaceAll(/#define\s+CLAP_([^;\n\\]|\\(.|\r|\n))+/g, match => {
+		addCode(match, true);
+		return "";
 	});
+
+	addCode(code);
+	return;
 }
 
 fs.writeFileSync("../include/wclap/_impl/wclap-generic.hpp", cppHeader);
+fs.writeFileSync("../include/wclap/_impl/wclap-defines.hpp", cppDefines);
+
