@@ -10,7 +10,6 @@ namespace wclap {
 template<class ActualImpl>
 class Instance {
 	ActualImpl impl;
-
 public:
 	template<class... Args>
 	Instance(Args &&...args) : impl(this, std::forward<Args>(args)...) {}
@@ -36,6 +35,15 @@ public:
 		} else {
 			entry32 = impl.init32();
 		}
+	}
+
+	// Return a thread ID which is currently "unused" (never used, or `runThread()` returned)
+	// It's reasonable to have a lifetime limit for these (e.g. the `wasi-threads` limits of `[1, 2^29)`)
+	int32_t nextThreadId() {
+		return impl.nextThreadId();
+	}
+	void runThread(int32_t threadId, uint64_t threadContext) {
+		impl.runThread(threadId, threadContext);
 	}
 
 	//---- wclap32 ----//
