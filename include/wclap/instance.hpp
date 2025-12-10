@@ -1,3 +1,5 @@
+#pragma once
+
 #include "./wclap.hpp"
 
 #include <functional>

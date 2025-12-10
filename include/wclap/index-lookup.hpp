@@ -5,6 +5,8 @@ This is useful for sticking in `host.host_data` or similar context fields, becau
 Currently this uses a `shared_mutex`, which is non-blocking *unless* items are being added/removed from the list.  It should be possible to implement in a completely lock-free way for `.get()`, but this will do for now.
 */
 
+#pragma once
+
 #include <vector>
 #include <shared_mutex>
 
