@@ -2,6 +2,8 @@
 
 #include <functional>
 #include <type_traits>
+#include <string>
+#include <optional>
 
 namespace wclap {
 
@@ -13,6 +15,12 @@ class Instance {
 public:
 	template<class... Args>
 	Instance(Args &&...args) : impl(this, std::forward<Args>(args)...) {}
+	
+	// Error message if something went wrong, or null.
+	// This method must not block (or allocate) if there isn't an error
+	std::optional<std::string> error() const {
+		return impl.error();
+	}
 	
 	// Path inside its own virtual filesystem
 	const char * path() const {

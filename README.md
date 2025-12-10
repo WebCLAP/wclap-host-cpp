@@ -1,6 +1,6 @@
 # WCLAP C++ helpers
 
-This repo contains WCLAP C++ headers (translated from the CLAP headers) as well as some helpers
+This repo contains WCLAP C++ headers (translated from the CLAP headers) as well as some helper classes.
 
 ## C++ API
 
