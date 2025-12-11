@@ -31,10 +31,10 @@ namespace wclap32 {
 		}
 		
 		Pointer operator+(int32_t delta) {
-			return {wasmPointer + delta*sizeof(T)};
+			return {wasmPointer + delta*Size(sizeof(T))};
 		}
 		Pointer &operator+=(int32_t delta) {
-			wasmPointer += delta*sizeof(T);
+			wasmPointer += delta*Size(sizeof(T));
 			return *this;
 		}
 		
@@ -43,7 +43,7 @@ namespace wclap32 {
 		std::enable_if_t<std::is_same_v<std::remove_cv_t<T>, T2>, Pointer<M>> operator[](M T2::*ptr) {
 			T tmp{};
 			size_t offset = size_t(&(tmp.*ptr)) - size_t(&tmp);
-			return {wasmPointer + offset};
+			return {Size(wasmPointer + offset)};
 		}
 	};
 	template<class Return, class... Args>
@@ -76,19 +76,19 @@ namespace wclap64 {
 		}
 
 		Pointer operator+(int64_t delta) {
-			return {wasmPointer + delta*sizeof(T)};
+			return {wasmPointer + delta*Size(sizeof(T))};
 		}
 		Pointer &operator+=(int64_t delta) {
-			wasmPointer += delta*sizeof(T);
+			wasmPointer += delta*Size(sizeof(T));
 			return *this;
 		}
 		
 		// Use pointer[&T::member] -> pointer to field with appropriate offset
 		template<class M, class T2>
-		std::enable_if<std::is_same_v<std::remove_cv_t<T>, T2>, Pointer<M>> operator[](M T2::*ptr) {
+		std::enable_if_t<std::is_same_v<std::remove_cv_t<T>, T2>, Pointer<M>> operator[](M T2::*ptr) {
 			T tmp{};
 			size_t offset = size_t(&(tmp.*ptr)) - size_t(&tmp);
-			return {wasmPointer + offset};
+			return {Size(wasmPointer + offset)};
 		}
 	};
 	template<class Return, class... Args>

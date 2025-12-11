@@ -39,11 +39,13 @@ public:
 	
 	// Main thread - this should call _initialize() etc. but not clap_entry.init()
 	// You should implement `init32()`/`init64()` which return the corresponding entry points
-	void init() {
+	bool init() {
 		if (is64()) {
-			entry64 = impl.init64();
+			entry64 = {impl.init64()};
+			return (entry64.wasmPointer != 0);
 		} else {
-			entry32 = impl.init32();
+			entry32 = {impl.init32()};
+			return (entry32.wasmPointer != 0);
 		}
 	}
 
@@ -138,6 +140,10 @@ public:
 	template<class Return, class... Args, class... CArgs>
 	Return call(wclap64::Function<Return, Args...> fnPtr, CArgs... args) {
 		return impl.template call<Return, Args...>(fnPtr, args...);
+	}
+	template<class Return, class... Args, class... CArgs>
+	Return call(wclap64::Pointer<wclap64::Function<Return, Args...>> fnPtrPtr, CArgs... args) {
+		return impl.template callAt<Return, Args...>(fnPtrPtr, args...);
 	}
 
 	template<class Return, class ...Args>
