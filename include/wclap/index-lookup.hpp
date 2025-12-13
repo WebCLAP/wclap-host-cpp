@@ -37,6 +37,9 @@ struct IndexLookup {
 		std::unique_lock guard{mutex};
 		if (index < list.size()) list[index] = nullptr;
 	}
+	void clear() {
+		list.resize(0);
+	}
 private:
 	std::shared_mutex mutex;
 	std::vector<std::unique_ptr<T>> list;

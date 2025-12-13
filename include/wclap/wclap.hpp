@@ -40,7 +40,7 @@ namespace wclap32 {
 		
 		// Use pointer[&T::member] -> pointer to field with appropriate offset
 		template<class M, class T2>
-		std::enable_if_t<std::is_same_v<std::remove_cv_t<T>, T2>, Pointer<M>> operator[](M T2::*ptr) {
+		std::enable_if_t<std::is_same_v<std::remove_cv_t<T>, T2>, Pointer<M>> operator[](M T2::*ptr) const {
 			T tmp{};
 			size_t offset = size_t(&(tmp.*ptr)) - size_t(&tmp);
 			return {Size(wasmPointer + offset)};
@@ -85,7 +85,7 @@ namespace wclap64 {
 		
 		// Use pointer[&T::member] -> pointer to field with appropriate offset
 		template<class M, class T2>
-		std::enable_if_t<std::is_same_v<std::remove_cv_t<T>, T2>, Pointer<M>> operator[](M T2::*ptr) {
+		std::enable_if_t<std::is_same_v<std::remove_cv_t<T>, T2>, Pointer<M>> operator[](M T2::*ptr) const {
 			T tmp{};
 			size_t offset = size_t(&(tmp.*ptr)) - size_t(&tmp);
 			return {Size(wasmPointer + offset)};

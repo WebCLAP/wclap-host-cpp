@@ -85,9 +85,17 @@ public:
 		return impl.setArray(ptr, value, count);
 	}
 	
-	template<class V, class VE>
-	uint32_t countUntil(wclap32::Pointer<V> ptr, const VE &endValue, uint32_t maxCount=-1) {
-		return impl.template countUntil<V>(ptr, V(endValue), maxCount);
+	std::string getString(wclap32::Pointer<const char> ptr, size_t maxLength) {
+		size_t length = 0;
+		while (length < maxLength) {
+			auto c = this->get(ptr, length);
+			if (!c) break;
+			length++;
+		}
+		std::string result;
+		result.resize(length);
+		this->getArray(ptr, result.data(), length);
+		return result;
 	}
 
 	template<class Return, class... Args, class... CArgs>
@@ -132,9 +140,17 @@ public:
 		return impl.setArray(ptr, value, count);
 	}
 	
-	template<class V, class VE>
-	uint64_t countUntil(wclap64::Pointer<V> ptr, VE endValue, uint64_t maxCount=-1){
-		return impl.template countUntil<V>(ptr, V(endValue), maxCount);
+	std::string getString(wclap64::Pointer<const char> ptr, size_t maxLength) {
+		size_t length = 0;
+		while (length < maxLength) {
+			auto c = this->get(ptr, length);
+			if (!c) break;
+			length++;
+		}
+		std::string result;
+		result.resize(length);
+		this->getArray(ptr, result.data(), length);
+		return result;
 	}
 
 	template<class Return, class... Args, class... CArgs>
