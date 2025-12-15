@@ -49,6 +49,7 @@ namespace wclap32 {
 	template<class Return, class... Args>
 	struct Function {
 		uint32_t wasmPointer;
+		Function(uint32_t wasmPointer=0) : wasmPointer(wasmPointer) {}
 	};
 
 	#include "./_impl/wclap-generic.hpp"
@@ -94,6 +95,7 @@ namespace wclap64 {
 	template<class Return, class... Args>
 	struct Function {
 		uint64_t wasmPointer;
+		Function(uint64_t wasmPointer=0) : wasmPointer(wasmPointer) {}
 	};
 
 	#include "./_impl/wclap-generic.hpp"
