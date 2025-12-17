@@ -24,13 +24,7 @@ struct MemoryArena {
 	bool ok = false;
 
 	MemoryArena(ArenaPool &pool, Instance *instance, Size size=16384) : pool(pool), instance(instance) {
-		if constexpr (is64) {
-			start = instance->malloc64(size).wasmPointer;
-		} else {
-			start = instance->malloc32(size).wasmPointer;
-		}
-		end = start + size;
-		cleanStart = start;
+		allocateBlock(size);
 		if (start) ok = true;
 	}
 
@@ -41,7 +35,10 @@ struct MemoryArena {
 	// Restores the arena pointer to a previous value when it drops out of scope, or (if `borrowedArena` set) return the Arena itself to the pool.
 	struct Scoped {
 		~Scoped() {
-			arena.start = restoreStart;
+			if (restoreStart >= arena.cleanStart && restoreStart < arena.end) {
+				// If an inner scope
+				arena.start = restoreStart;
+			}
 			if (borrowedArena) {
 				borrowedArena->pool.returnToPool(borrowedArena);
 			}
@@ -62,7 +59,16 @@ struct MemoryArena {
 			while (arena.start%align) ++arena.start;
 			Pointer<void> ptr{arena.start};
 			arena.start += length;
-			if (arena.start > arena.end) return {0}; // TODO: grow arena
+			while (arena.start > arena.end) {
+				size_t newSize = (arena.end - arena.cleanStart)*4;
+				std::cerr << "WCLAP: growing host arena (malloc) mid-call to " << newSize << std::endl;
+				arena.allocateBlock(newSize);
+				restoreStart = arena.start;
+				// try again
+				while (arena.start%align) ++arena.start;
+				ptr = {arena.start};
+				arena.start += length;
+			}
 			return ptr;
 		}
 
@@ -104,6 +110,16 @@ private:
 	Size start = 0, end = 0;
 	Size cleanStart = 0;
 	Instance *instance = nullptr;
+
+	void allocateBlock(size_t size) {
+		if constexpr (is64) {
+			start = instance->malloc64(size).wasmPointer;
+		} else {
+			start = instance->malloc32(size).wasmPointer;
+		}
+		end = start + size;
+		cleanStart = start;
+	}
 };
 
 template<class Instance, bool is64>
