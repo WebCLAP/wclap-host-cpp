@@ -6,6 +6,7 @@
 #include <type_traits>
 #include <string>
 #include <optional>
+#include <atomic>
 
 namespace wclap {
 
@@ -14,6 +15,7 @@ namespace wclap {
 template<class ActualImpl>
 class Instance {
 	ActualImpl impl;
+	std::atomic<bool> stopRequested = false;
 public:
 	template<class... Args>
 	Instance(Args &&...args) : impl(this, std::forward<Args>(args)...) {}
@@ -32,7 +34,7 @@ public:
 	bool is64() const {
 		return impl.is64();
 	}
-
+	
 	// Entry-points - not populated until the module is initialised
 	wclap32::Pointer<const wclap32::wclap_plugin_entry> entry32{0};
 	wclap64::Pointer<const wclap64::wclap_plugin_entry> entry64{0};
@@ -56,6 +58,13 @@ public:
 	}
 	void runThread(int32_t threadId, uint64_t threadContext) {
 		impl.runThread(threadId, threadContext);
+	}
+	// whether the thread should terminate early
+	bool shouldStop() const {
+		return stopRequested;
+	}
+	void requestStop() {
+		stopRequested = true;
 	}
 
 	//---- wclap32 ----//
